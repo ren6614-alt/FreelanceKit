@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — FreelanceKit</title>
+  <meta name="description" content="How FreelanceKit collects, stores, and deletes freelancer account and invoice data.">
+  <meta name="robots" content="index,follow">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="header-slot"></div>
+  <main class="legal" id="main">
+    <h1>Privacy Policy</h1>
+    <p>Last updated: 5 September 2026. This describes the FreelanceKit application as you self-host or deploy it. Replace contact details before a public launch.</p>
+    <h2>What data is collected</h2>
+    <p>When you create an account we collect your email address and password (handled by Supabase Auth). You may also add a name, business details, phone number, address, website, tax/GST information, a logo file, clients, invoices, quotations, payment records, expenses, and subscription metadata.</p>
+    <h2>Why it is collected</h2>
+    <p>This data is used to sign you in, generate invoices and quotations, track payments you record, apply plan limits, and export your records at your request.</p>
+    <h2>Authentication</h2>
+    <p>Sign-in is provided by Supabase Auth. FreelanceKit does not store passwords in application tables and does not keep session tokens in custom database fields. Sessions are managed by the Supabase client in the browser using its standard storage.</p>
+    <h2>User-owned data</h2>
+    <p>Clients, invoices, quotations, payments, expenses, and profile fields belong to your user id. Database row-level security is designed so one account cannot read another account’s records. Production data is stored in your Supabase project (cloud), not only on your device.</p>
+    <h2>Payment processing</h2>
+    <p>Manual payment records are your notes about money received outside the app. If you later connect Razorpay, that provider processes card or UPI checkout for FreelanceKit subscriptions. Payment secrets stay on the server (Edge Function). FreelanceKit does not claim a subscription is paid until the provider confirms it.</p>
+    <h2>Data deletion</h2>
+    <p>You can export your data from Settings, then delete your account. Deletion removes your auth user and cascaded application rows when the provided SQL function is installed.</p>
+    <h2>Cookies and local storage</h2>
+    <p>The app uses local storage for theme preference and for the auth session managed by Supabase. A service worker may cache public static files (CSS, marketing pages). Authenticated API responses are not stored in that cache.</p>
+    <h2>Third-party services</h2>
+    <p>Typical deployments use Supabase (auth, database, storage) and may use Razorpay for subscriptions, plus font and script CDNs. Those services have their own privacy terms.</p>
+    <h2>Analytics</h2>
+    <p>No marketing or advertising tracker is enabled by default. Operators may later connect a privacy-conscious analytics provider through the optional <code>FreelanceKit.analytics</code> hook.</p>
+    <h2>Contact</h2>
+    <p>Questions: use the <a href="contact.html">contact page</a> and replace the placeholder email in configuration before launch.</p>
+  </main>
+  <div id="footer-slot"></div>
+  <script src="config.js"></script>
+  <script src="ui.js"></script>
+  <script>
+    FreelanceKit.ui.initTheme();
+    document.getElementById("header-slot").innerHTML = FreelanceKit.ui.publicHeader();
+    document.getElementById("footer-slot").innerHTML = FreelanceKit.ui.publicFooter();
+    document.getElementById("theme-toggle")?.addEventListener("click", () => {
+      FreelanceKit.ui.applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+    });
+  </script>
+</body>
+</html>

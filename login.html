@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in — FreelanceKit</title>
+  <meta name="description" content="Log in to FreelanceKit to manage invoices, quotations, and clients.">
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="auth-card card">
+      <a class="brand" href="index.html"><img class="brand-mark" src="assets/favicon.svg" alt=""> FreelanceKit</a>
+      <h1>Welcome back</h1>
+      <p class="help" id="setup"></p>
+      <form id="form">
+        <label>Email <input type="email" name="email" required autocomplete="email"></label>
+        <label style="margin-top:10px;display:block">Password <input type="password" name="password" required autocomplete="current-password"></label>
+        <button class="btn" type="submit" style="width:100%;margin-top:16px">Log in</button>
+      </form>
+      <p><button class="btn btn-ghost btn-sm" type="button" id="forgot">Forgot password</button></p>
+      <p>New here? <a href="signup.html">Create a free account</a></p>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="ui.js"></script>
+  <script src="auth.js"></script>
+  <script>
+    const FK = FreelanceKit;
+    FK.ui.initTheme();
+    if (!FK.auth.isConfigured()) document.getElementById("setup").textContent = "Add supabaseUrl and supabaseAnonKey in config.js before signing in.";
+    const params = new URLSearchParams(location.search);
+    document.getElementById("form").onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        await FK.auth.login(fd.get("email"), fd.get("password"));
+        location.replace(params.get("next") || "dashboard.html");
+      } catch (err) {
+        FK.ui.toast(FK.ui.friendlyError(err, "Could not log in. Check your email and password."), "error");
+      }
+    };
+    document.getElementById("forgot").onclick = async () => {
+      const email = document.querySelector("[name=email]").value;
+      if (!email) { FK.ui.toast("Enter your email first.", "error"); return; }
+      try {
+        await FK.auth.requestPasswordReset(email);
+        FK.ui.toast("If that account exists, a reset email is on the way.");
+      } catch (err) {
+        FK.ui.toast(FK.ui.friendlyError(err, "Could not send reset email."), "error");
+      }
+    };
+  </script>
+</body>
+</html>

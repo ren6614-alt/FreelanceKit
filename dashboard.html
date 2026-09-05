@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard — FreelanceKit</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="page" hidden>
+    <div class="stats" id="stats"></div>
+    <div class="chart-grid">
+      <div class="card chart-card"><h3>Revenue over time</h3><canvas id="chart-revenue"></canvas></div>
+      <div class="card chart-card"><h3>Paid vs unpaid</h3><canvas id="chart-status"></canvas></div>
+      <div class="card chart-card"><h3>Monthly revenue</h3><canvas id="chart-month"></canvas></div>
+      <div class="card chart-card" id="expense-chart-wrap"><h3>Expenses vs revenue <span class="badge badge-pro">PRO</span></h3><canvas id="chart-exp"></canvas></div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="config.js"></script>
+  <script src="ui.js"></script>
+  <script src="auth.js"></script>
+  <script src="database.js"></script>
+  <script src="subscription.js"></script>
+  <script src="invoices.js"></script>
+  <script src="quotations.js"></script>
+  <script src="clients.js"></script>
+  <script src="payments.js"></script>
+  <script src="pdf.js"></script>
+  <script src="app.js"></script>
+  <script>
+    const FK = FreelanceKit;
+    FK.app.bootPrivate({
+      active: "dashboard",
+      title: "Dashboard",
+      contentSelector: "#page",
+      render: async () => {
+        document.getElementById("page").hidden = false;
+        const invoices = FK.invoices.refreshOverdue(await FK.db.listInvoices());
+        await FK.invoices.persistOverdue(invoices);
+        const clients = await FK.db.listClients();
+        const payments = await FK.db.listPayments();
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+        const invMonth = invoices.filter((i) => i.issue_date >= monthStart);
+        const totalRevenue = invoices.reduce((s, i) => s + Number(i.total || 0), 0);
+        const received = invoices.reduce((s, i) => s + Number(i.amount_paid || 0), 0);
+        const pending = Math.max(totalRevenue - received, 0);
+        const overdue = invoices.filter((i) => i.status === "overdue").reduce((s, i) => s + Math.max(Number(i.total) - Number(i.amount_paid), 0), 0);
+        const outstanding = invoices.filter((i) => !["paid", "draft"].includes(i.status)).length;
+        const money = (n) => FK.ui.formatMoney(n);
+        document.getElementById("stats").innerHTML = `
+          <div class="stat"><div class="label">Total revenue</div><div class="value">${money(totalRevenue)}</div></div>
+          <div class="stat"><div class="label">Amount received</div><div class="value">${money(received)}</div></div>
+          <div class="stat"><div class="label">Amount pending</div><div class="value">${money(pending)}</div></div>
+          <div class="stat"><div class="label">Overdue amount</div><div class="value">${money(overdue)}</div></div>
+          <div class="stat"><div class="label">Clients</div><div class="value">${clients.length}</div></div>
+          <div class="stat"><div class="label">Invoices this month</div><div class="value">${invMonth.length}</div></div>
+          <div class="stat"><div class="label">Outstanding invoices</div><div class="value">${outstanding}</div></div>
+          <div class="stat"><div class="label">Payments recorded</div><div class="value">${payments.length}</div></div>
+        `;
+
+        const byMonth = {};
+        invoices.forEach((inv) => {
+          const key = (inv.issue_date || "").slice(0, 7);
+          if (!key) return;
+          byMonth[key] = (byMonth[key] || 0) + Number(inv.amount_paid || 0);
+        });
+        const labels = Object.keys(byMonth).sort().slice(-12);
+        const paidCount = invoices.filter((i) => i.status === "paid").length;
+        const unpaidCount = invoices.filter((i) => i.status !== "paid" && i.status !== "draft").length;
+
+        const mk = (id, cfg) => {
+          const ctx = document.getElementById(id);
+          if (!ctx || !window.Chart) return;
+          new Chart(ctx, cfg);
+        };
+        mk("chart-revenue", {
+          type: "line",
+          data: { labels, datasets: [{ label: "Received", data: labels.map((l) => byMonth[l] || 0), borderColor: "#1f5c4d", tension: 0.3 }] },
+          options: { responsive: true, plugins: { legend: { display: false } } },
+        });
+        mk("chart-status", {
+          type: "doughnut",
+          data: { labels: ["Paid", "Unpaid / partial"], datasets: [{ data: [paidCount, unpaidCount], backgroundColor: ["#1f5c4d", "#c4a574"] }] },
+        });
+        const billed = {};
+        invoices.forEach((inv) => {
+          const key = (inv.issue_date || "").slice(0, 7);
+          billed[key] = (billed[key] || 0) + Number(inv.total || 0);
+        });
+        mk("chart-month", {
+          type: "bar",
+          data: { labels, datasets: [{ label: "Invoiced", data: labels.map((l) => billed[l] || 0), backgroundColor: "#3d8f78" }] },
+          options: { responsive: true },
+        });
+
+        if (FK.plan !== "pro") {
+          document.getElementById("expense-chart-wrap").classList.add("pro-lock");
+          document.getElementById("expense-chart-wrap").addEventListener("click", () => FK.subscriptionApi.requirePro("advanced revenue analytics"));
+          return;
+        }
+        const expenses = await FK.db.listExpenses();
+        const expMonth = {};
+        expenses.forEach((e) => {
+          const key = (e.incurred_on || "").slice(0, 7);
+          expMonth[key] = (expMonth[key] || 0) + Number(e.amount || 0);
+        });
+        mk("chart-exp", {
+          type: "bar",
+          data: {
+            labels,
+            datasets: [
+              { label: "Revenue", data: labels.map((l) => billed[l] || 0), backgroundColor: "#1f5c4d" },
+              { label: "Expenses", data: labels.map((l) => expMonth[l] || 0), backgroundColor: "#c4a574" },
+            ],
+          },
+        });
+      },
+    }).catch(() => {});
+  </script>
+</body>
+</html>

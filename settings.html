@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings — FreelanceKit</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="page" hidden>
+    <div class="settings-nav">
+      <button class="btn btn-ghost btn-sm" data-tab="profile">Profile</button>
+      <button class="btn btn-ghost btn-sm" data-tab="business">Business</button>
+      <button class="btn btn-ghost btn-sm" data-tab="invoice">Invoice preferences</button>
+      <button class="btn btn-ghost btn-sm" data-tab="branding">Templates <span class="badge badge-pro">PRO</span></button>
+      <button class="btn btn-ghost btn-sm" data-tab="theme">Theme</button>
+      <button class="btn btn-ghost btn-sm" data-tab="subscription">Subscription</button>
+      <button class="btn btn-ghost btn-sm" data-tab="export">Data export</button>
+      <button class="btn btn-ghost btn-sm" data-tab="danger">Delete account</button>
+    </div>
+    <div id="panel" class="card"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script src="config.js"></script>
+  <script src="ui.js"></script>
+  <script src="auth.js"></script>
+  <script src="database.js"></script>
+  <script src="subscription.js"></script>
+  <script src="invoices.js"></script>
+  <script src="quotations.js"></script>
+  <script src="clients.js"></script>
+  <script src="payments.js"></script>
+  <script src="pdf.js"></script>
+  <script src="app.js"></script>
+  <script>
+    const FK = FreelanceKit;
+    const p = () => FK.profile || {};
+
+    function field(name, label, value, type) {
+      return `<label>${label} <input type="${type || "text"}" name="${name}" value="${FK.ui.escapeHtml(value || "")}"></label>`;
+    }
+
+    async function show(tab) {
+      const panel = document.getElementById("panel");
+      if (tab === "profile") {
+        panel.innerHTML = `<h2>Profile</h2><form id="sform" class="form-grid">
+          ${field("full_name", "Full name", p().full_name)}
+          ${field("email", "Email", p().email || (FK.user && FK.user.email), "email")}
+          ${field("phone", "Phone", p().phone, "tel")}
+          <label class="full">Address <textarea name="address">${FK.ui.escapeHtml(p().address || "")}</textarea></label>
+          ${field("website", "Website", p().website, "url")}
+          <div class="full"><button class="btn" type="submit">Save profile</button></div></form>`;
+      } else if (tab === "business") {
+        panel.innerHTML = `<h2>Business information</h2><form id="sform" class="form-grid">
+          ${field("business_name", "Business / freelancer name", p().business_name)}
+          ${field("tax_id", "Tax / GST information", p().tax_id)}
+          <label>Default currency <select name="default_currency">${FK.config.currencies.map((c) => `<option ${p().default_currency === c ? "selected" : ""}>${c}</option>`).join("")}</select></label>
+          <div class="full"><button class="btn" type="submit">Save</button></div></form>`;
+      } else if (tab === "invoice") {
+        panel.innerHTML = `<h2>Invoice preferences</h2><form id="sform" class="form-grid">
+          <label class="full">Default invoice terms <textarea name="default_terms">${FK.ui.escapeHtml(p().default_terms || "")}</textarea></label>
+          ${field("invoice_prefix", "Invoice prefix", p().invoice_prefix)}
+          ${field("next_invoice_number", "Next invoice number", p().next_invoice_number, "number")}
+          ${field("quotation_prefix", "Quotation prefix", p().quotation_prefix)}
+          ${field("next_quotation_number", "Next quotation number", p().next_quotation_number, "number")}
+          <p class="help full">Automatic invoice numbering uses the prefix and next number. Pro keeps this in sync when invoices are generated from schedules.</p>
+          <div class="full"><button class="btn" type="submit">Save</button></div></form>`;
+      } else if (tab === "branding") {
+        const locked = FK.plan !== "pro";
+        panel.innerHTML = `<h2>Templates & branding ${locked ? "<span class='badge badge-pro'>PRO</span>" : ""}</h2>
+          ${locked ? "<p>Custom colors, logo on invoices, and extra templates are Pro features.</p><button class='btn' id='up'>Upgrade to Pro</button>" : ""}
+          <form id="sform" class="form-grid" ${locked ? "hidden" : ""}>
+            <label>Template <select name="invoice_template" id="tpl">${FK.config.invoiceTemplates.map((t) => `<option ${p().invoice_template === t ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+            <label>Accent color <input type="color" name="accent_color" id="accent" value="${p().accent_color || "#1F5C4D"}"></label>
+            <label class="full">Custom footer <textarea name="invoice_footer">${FK.ui.escapeHtml(p().invoice_footer || "")}</textarea></label>
+            <label class="full">Logo <input type="file" id="logo" accept="image/*"></label>
+            <div class="full"><button class="btn" type="submit">Save branding</button></div>
+          </form>
+          <h3>Live preview</h3>
+          <div class="preview-sheet" id="preview"></div>`;
+        if (locked) document.getElementById("up").onclick = () => location.href = "pricing.html";
+        else paintPreview();
+      } else if (tab === "theme") {
+        panel.innerHTML = `<h2>Theme</h2><p>Light and dark mode follow this device unless you pin a choice.</p>
+          <button class="btn" type="button" id="light">Light</button>
+          <button class="btn btn-ghost" type="button" id="dark">Dark</button>`;
+        document.getElementById("light").onclick = () => FK.ui.applyTheme("light");
+        document.getElementById("dark").onclick = () => FK.ui.applyTheme("dark");
+      } else if (tab === "subscription") {
+        const s = FK.subscription || { plan: "free", status: "free" };
+        const period = s.billing_period ? s.billing_period : "—";
+        panel.innerHTML = `<h2>Subscription</h2>
+          <p>Current plan: <strong>${FK.ui.escapeHtml(FK.plan || "free")}</strong></p>
+          <p>Billing period: ${FK.ui.escapeHtml(period)}</p>
+          <p>Subscription status: ${FK.app.statusBadge(s.status)}</p>
+          <p>Next billing date: ${s.current_period_end ? FK.ui.formatDate(s.current_period_end) : "—"}</p>
+          <p class="help">Plan status is loaded from your account in the database. Changing values in this browser does not upgrade you.</p>
+          <div class="toolbar">
+            <a class="btn" href="pricing.html">Upgrade / manage subscription</a>
+            <button class="btn btn-ghost" type="button" id="cancel-sub">Cancel Pro</button>
+          </div>
+          <p id="pay-note" class="help"></p>`;
+        document.getElementById("pay-note").textContent = FK.paymentsGateway.paymentsConfigured() ? "" : "Payments are not configured yet.";
+        document.getElementById("cancel-sub").onclick = async () => {
+          if (!await FK.ui.confirmDialog("Cancel Pro at period end?")) return;
+          try {
+            await FK.paymentsGateway.cancelSubscription();
+            FK.ui.toast("Cancellation requested.");
+            await FK.subscriptionApi.refreshPlan();
+            show("subscription");
+          } catch (ex) {
+            FK.ui.toast(FK.ui.friendlyError(ex, "Could not cancel."), "error");
+          }
+        };
+      } else if (tab === "export") {
+        panel.innerHTML = `<h2>Data export</h2>
+          <p>Download your records as CSV or JSON.</p>
+          <div class="toolbar">
+            <button class="btn" data-ex="clients">Clients CSV</button>
+            <button class="btn" data-ex="invoices">Invoices CSV</button>
+            <button class="btn" data-ex="quotations">Quotations CSV</button>
+            <button class="btn" data-ex="payments">Payments CSV</button>
+            <button class="btn" data-ex="expenses">Expenses CSV</button>
+            <button class="btn btn-ghost" id="json">Full JSON</button>
+            <button class="btn btn-ghost" id="pdfrep">PDF report <span class="badge badge-pro">PRO</span></button>
+          </div>`;
+      } else if (tab === "danger") {
+        panel.innerHTML = `<h2>Delete account</h2>
+          <p>This permanently deletes your FreelanceKit data and sign-in. It cannot be undone.</p>
+          <button class="btn btn-danger" id="delacc">Delete my account</button>`;
+        document.getElementById("delacc").onclick = async () => {
+          if (!await FK.ui.confirmDialog("Delete your account and all data?")) return;
+          try {
+            await FK.db.deleteAccount();
+            await FK.auth.logout();
+          } catch (ex) {
+            FK.ui.toast(FK.ui.friendlyError(ex, "Could not delete account."), "error");
+          }
+        };
+      }
+
+      const form = document.getElementById("sform");
+      if (form) form.onsubmit = async (e) => {
+        e.preventDefault();
+        const fd = Object.fromEntries(new FormData(e.target).entries());
+        if (fd.next_invoice_number) fd.next_invoice_number = Number(fd.next_invoice_number);
+        if (fd.next_quotation_number) fd.next_quotation_number = Number(fd.next_quotation_number);
+        try {
+          const logo = document.getElementById("logo");
+          if (logo && logo.files && logo.files[0]) {
+            if (FK.plan !== "pro") { FK.subscriptionApi.requirePro("custom business branding"); return; }
+            await FK.db.uploadLogo(logo.files[0]);
+          }
+          await FK.db.upsertProfile(fd);
+          FK.ui.toast("Settings saved");
+          if (tab === "branding") paintPreview();
+        } catch (ex) {
+          FK.ui.toast(FK.ui.friendlyError(ex, "Could not save settings."), "error");
+        }
+      };
+
+      panel.querySelectorAll("[data-ex]").forEach((btn) => btn.onclick = () => exportCsv(btn.getAttribute("data-ex")));
+      const jsonBtn = document.getElementById("json");
+      if (jsonBtn) jsonBtn.onclick = exportJson;
+      const pdfrep = document.getElementById("pdfrep");
+      if (pdfrep) pdfrep.onclick = async () => {
+        if (!FK.subscriptionApi.requirePro("advanced reports")) return;
+        const inv = await FK.db.listInvoices();
+        const lines = inv.map((i) => `${i.number} ${i.status} ${i.total}`);
+        await FK.pdf.reportPdf("Invoice report", lines.length ? lines : ["No invoices"]);
+      };
+      const tpl = document.getElementById("tpl");
+      const accent = document.getElementById("accent");
+      if (tpl) tpl.onchange = paintPreview;
+      if (accent) accent.oninput = paintPreview;
+    }
+
+    async function paintPreview() {
+      const preview = document.getElementById("preview");
+      if (!preview) return;
+      const mock = {
+        number: "INV-0000",
+        issue_date: FK.ui.todayISO(),
+        due_date: FK.ui.todayISO(),
+        currency: p().default_currency,
+        subtotal: 1000,
+        discount: 0,
+        tax_total: 180,
+        total: 1180,
+        amount_paid: 0,
+        notes: "Preview only",
+        terms: p().default_terms,
+        template: document.getElementById("tpl") ? document.getElementById("tpl").value : "basic",
+        invoice_items: [{ description: "Sample service", quantity: 1, rate: 1000, amount: 1000, sort_order: 0 }],
+        clients: { name: "Sample client", company: "Studio", email: "client@example.com" },
+      };
+      const profile = { ...p(), accent_color: document.getElementById("accent") ? document.getElementById("accent").value : p().accent_color };
+      const logo = profile.logo_path ? await FK.db.logoUrl(profile.logo_path) : "";
+      preview.innerHTML = FK.pdf.buildDocumentInner("invoice", mock, profile, logo);
+    }
+
+    async function exportCsv(kind) {
+      const maps = {
+        clients: [await FK.db.listClients(), ["name","company","email","phone","address","tax_id"]],
+        invoices: [await FK.db.listInvoices(), ["number","issue_date","status","total","amount_paid"]],
+        quotations: [await FK.db.listQuotations(), ["number","issue_date","status","total"]],
+        payments: [await FK.db.listPayments(), ["paid_at","amount","method","reference"]],
+        expenses: [await FK.db.listExpenses(), ["name","amount","category","incurred_on"]],
+      };
+      const [rows, cols] = maps[kind];
+      const csv = [cols.join(",")].concat(rows.map((r) => cols.map((c) => FK.app.csvEscape(r[c])).join(","))).join("\n");
+      FK.app.downloadText(kind + ".csv", csv, "text/csv");
+    }
+
+    async function exportJson() {
+      const payload = {
+        clients: await FK.db.listClients(),
+        invoices: await FK.db.listInvoices(),
+        quotations: await FK.db.listQuotations(),
+        payments: await FK.db.listPayments(),
+        expenses: await FK.db.listExpenses(),
+      };
+      FK.app.downloadText("freelancekit-export.json", JSON.stringify(payload, null, 2), "application/json");
+    }
+
+    FK.app.bootPrivate({
+      active: "settings",
+      title: "Settings",
+      contentSelector: "#page",
+      render: async () => {
+        document.getElementById("page").hidden = false;
+        document.querySelector(".settings-nav").addEventListener("click", (e) => {
+          const tab = e.target.getAttribute("data-tab");
+          if (tab) show(tab);
+        });
+        show("profile");
+      },
+    }).catch(() => {});
+  </script>
+</body>
+</html>

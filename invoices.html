@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Invoices — FreelanceKit</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="page" hidden>
+    <div class="toolbar">
+      <input class="search" id="search" placeholder="Search invoices">
+      <button class="btn" type="button" id="add">New invoice</button>
+      <button class="btn btn-ghost" type="button" id="recurring">Recurring <span class="badge badge-pro">PRO</span></button>
+    </div>
+    <div id="list"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="config.js"></script>
+  <script src="ui.js"></script>
+  <script src="auth.js"></script>
+  <script src="database.js"></script>
+  <script src="subscription.js"></script>
+  <script src="invoices.js"></script>
+  <script src="quotations.js"></script>
+  <script src="clients.js"></script>
+  <script src="payments.js"></script>
+  <script src="pdf.js"></script>
+  <script src="app.js"></script>
+  <script>
+    const FK = FreelanceKit;
+    let invoices = [], clients = [];
+
+    function clientOptions(selected) {
+      return clients.map((c) => `<option value="${c.id}" ${c.id === selected ? "selected" : ""}>${FK.ui.escapeHtml(c.name)}</option>`).join("");
+    }
+
+    function templates() {
+      const allowed = FK.plan === "pro" ? FK.config.invoiceTemplates : ["basic"];
+      return allowed.map((t) => `<option value="${t}">${t}</option>`).join("");
+    }
+
+    async function openEditor(existing) {
+      if (!existing && !FK.subscriptionApi.canCreateInvoice()) {
+        FK.ui.toast(FK.subscriptionApi.limitMessage("invoices"), "error");
+        FK.ui.showUpgrade("unlimited invoices");
+        return;
+      }
+      if (!clients.length) { FK.ui.toast("Add a client first."); location.href = "clients.html"; return; }
+      const num = existing ? existing.number : (await FK.db.nextDocumentNumber("invoice")).number;
+      const items = existing && existing.invoice_items ? existing.invoice_items : [];
+      const currency = (FK.profile && FK.profile.default_currency) || "INR";
+      FK.ui.modal(`<h2>${existing ? "Edit invoice" : "New invoice"}</h2>
+        <form id="iform">
+          <div class="form-grid">
+            <label>Number <input name="number" value="${FK.ui.escapeHtml(num)}" required></label>
+            <label>Client <select name="client_id" required>${clientOptions(existing && existing.client_id)}</select></label>
+            <label>Invoice date <input type="date" name="issue_date" value="${existing ? existing.issue_date : FK.ui.todayISO()}" required></label>
+            <label>Due date <input type="date" name="due_date" value="${existing && existing.due_date ? existing.due_date : FK.ui.todayISO()}"></label>
+            <label>Status <select name="status">
+              ${["draft","sent","paid","partially_paid","overdue"].map((s) => `<option ${existing && existing.status === s ? "selected" : ""}>${s}</option>`).join("")}
+            </select></label>
+            <label>Template ${FK.plan === "pro" ? "" : "<span class='badge badge-pro'>PRO</span>"}
+              <select name="template">${templates()}</select></label>
+            <label>Discount <input type="number" step="0.01" name="discount" id="discount" value="${existing ? existing.discount : 0}"></label>
+            <label>Default tax % <input type="number" step="0.01" name="tax_rate" id="tax_rate" value="${existing ? existing.tax_rate : 0}"></label>
+            <label class="full">Notes <textarea name="notes">${FK.ui.escapeHtml(existing && existing.notes || "")}</textarea></label>
+            <label class="full">Payment terms <textarea name="terms">${FK.ui.escapeHtml((existing && existing.terms) || (FK.profile && FK.profile.default_terms) || "")}</textarea></label>
+          </div>
+          ${FK.app.itemEditor(items)}
+          <div class="toolbar"><button class="btn btn-ghost" type="button" data-close>Cancel</button><button class="btn" type="submit">Save invoice</button></div>
+        </form>`, { wide: true });
+      document.querySelector("[data-close]").onclick = FK.ui.closeModal;
+      FK.app.bindItemCalc("#discount", "#tax_rate", currency);
+      document.getElementById("iform").onsubmit = async (e) => {
+        e.preventDefault();
+        const fd = Object.fromEntries(new FormData(e.target).entries());
+        const calc = FK.invoices.totals(FK.app.collectItems(), Number(fd.discount || 0), Number(fd.tax_rate || 0));
+        try {
+          const payload = {
+            client_id: fd.client_id,
+            number: fd.number,
+            issue_date: fd.issue_date,
+            due_date: fd.due_date || null,
+            status: fd.status,
+            currency,
+            notes: fd.notes,
+            terms: fd.terms,
+            discount: calc.discount,
+            tax_rate: Number(fd.tax_rate || 0),
+            subtotal: calc.subtotal,
+            tax_total: calc.taxTotal,
+            total: calc.total,
+            amount_paid: existing ? existing.amount_paid : 0,
+            template: FK.plan === "pro" ? fd.template : "basic",
+          };
+          if (existing) payload.id = existing.id;
+          await FK.db.saveInvoice(payload, calc.lines);
+          if (!existing) {
+            const n = await FK.db.nextDocumentNumber("invoice");
+            if (fd.number === n.number) await FK.db.bumpNumber("invoice", n.next);
+            else {
+              const profile = FK.profile;
+              const parsed = Number(String(fd.number).split("-").pop());
+              if (parsed && parsed >= (profile.next_invoice_number || 1)) await FK.db.bumpNumber("invoice", parsed + 1);
+            }
+            FK.ui.toast("Invoice created");
+          } else FK.ui.toast("Invoice updated");
+          FK.ui.closeModal();
+          await reload();
+        } catch (ex) {
+          FK.ui.toast(FK.ui.friendlyError(ex, "Could not save invoice."), "error");
+        }
+      };
+    }
+
+    function paint(filter) {
+      const q = (filter || "").toLowerCase();
+      const rows = invoices.filter((i) => (i.number + " " + ((i.clients && i.clients.name) || "")).toLowerCase().includes(q));
+      const el = document.getElementById("list");
+      if (!rows.length) {
+        el.innerHTML = `<div class="empty"><h3>No invoices yet.</h3><p>Create your first invoice after you add a client.</p><button class="btn" id="empty-add">New invoice</button></div>`;
+        document.getElementById("empty-add").onclick = () => document.getElementById("add").click();
+        return;
+      }
+      el.innerHTML = `<div class="table-wrap"><table class="data"><thead><tr><th>Number</th><th>Client</th><th>Date</th><th>Total</th><th>Due</th><th>Status</th><th></th></tr></thead><tbody>
+        ${rows.map((i) => `<tr>
+          <td>${FK.ui.escapeHtml(i.number)}</td>
+          <td>${FK.ui.escapeHtml((i.clients && i.clients.name) || "")}</td>
+          <td>${FK.ui.formatDate(i.issue_date)}</td>
+          <td>${FK.ui.formatMoney(i.total, i.currency)}</td>
+          <td>${FK.ui.formatMoney(Math.max((i.total || 0) - (i.amount_paid || 0), 0), i.currency)}</td>
+          <td>${FK.app.statusBadge(i.status)}</td>
+          <td>
+            <button class="btn btn-ghost btn-sm" data-edit="${i.id}">Edit</button>
+            <button class="btn btn-ghost btn-sm" data-pdf="${i.id}">PDF</button>
+            <button class="btn btn-ghost btn-sm" data-del="${i.id}">Delete</button>
+          </td>
+        </tr>`).join("")}
+      </tbody></table></div>`;
+    }
+
+    async function openRecurring() {
+      if (!FK.subscriptionApi.requirePro("recurring invoices")) return;
+      const schedules = await FK.db.listRecurring();
+      FK.ui.modal(`<h2>Recurring invoices <span class="badge badge-pro">PRO</span></h2>
+        <p class="help">Due schedules can be generated from this page. Automatic email delivery is not configured.</p>
+        <form id="rform" class="form-grid">
+          <label>Client <select name="client_id" required>${clientOptions()}</select></label>
+          <label>Amount <input type="number" step="0.01" name="amount" required></label>
+          <label>Frequency <select name="frequency"><option>weekly</option><option>monthly</option><option>quarterly</option><option>yearly</option></select></label>
+          <label>Start date <input type="date" name="start_date" required value="${FK.ui.todayISO()}"></label>
+          <label>End date <input type="date" name="end_date"></label>
+          <label class="full">Notes <input name="notes"></label>
+          <div class="full"><button class="btn" type="submit">Save schedule</button></div>
+        </form>
+        <div class="table-wrap"><table class="data"><thead><tr><th>Client</th><th>Amount</th><th>Next</th><th>Frequency</th></tr></thead>
+        <tbody>${schedules.map((s) => `<tr><td>${FK.ui.escapeHtml((s.clients && s.clients.name) || "")}</td><td>${FK.ui.formatMoney(s.amount)}</td><td>${FK.ui.formatDate(s.next_run_date)}</td><td>${s.frequency}</td></tr>`).join("") || "<tr><td colspan='4'>No schedules yet.</td></tr>"}</tbody></table></div>
+        <button class="btn btn-ghost" type="button" id="gen-due">Generate due invoices now</button>`, { wide: true });
+      document.getElementById("rform").onsubmit = async (e) => {
+        e.preventDefault();
+        const fd = Object.fromEntries(new FormData(e.target).entries());
+        try {
+          await FK.db.saveRecurring({
+            client_id: fd.client_id,
+            amount: Number(fd.amount),
+            frequency: fd.frequency,
+            start_date: fd.start_date,
+            end_date: fd.end_date || null,
+            next_run_date: fd.start_date,
+            notes: fd.notes,
+            active: true,
+            items: [],
+          });
+          FK.ui.toast("Recurring invoice saved");
+          FK.ui.closeModal();
+        } catch (ex) {
+          FK.ui.toast(FK.ui.friendlyError(ex, "Could not save schedule."), "error");
+        }
+      };
+      document.getElementById("gen-due").onclick = async () => {
+        try {
+          const ids = await FK.db.generateDueRecurring();
+          FK.ui.toast((ids && ids.length ? ids.length : 0) + " invoice(s) generated. Email is not sent automatically.");
+          FK.ui.closeModal();
+          await reload();
+        } catch (ex) {
+          FK.ui.toast(FK.ui.friendlyError(ex, "Could not generate invoices."), "error");
+        }
+      };
+    }
+
+    async function reload() {
+      invoices = FK.invoices.refreshOverdue(await FK.db.listInvoices());
+      await FK.invoices.persistOverdue(invoices);
+      clients = await FK.db.listClients();
+      await FK.subscriptionApi.getUsage();
+      paint(document.getElementById("search").value);
+    }
+
+    FK.app.bootPrivate({
+      active: "invoices",
+      title: "Invoices",
+      contentSelector: "#page",
+      render: async () => {
+        document.getElementById("page").hidden = false;
+        document.getElementById("add").onclick = () => openEditor(null);
+        document.getElementById("recurring").onclick = openRecurring;
+        document.getElementById("search").oninput = (e) => paint(e.target.value);
+        document.getElementById("list").addEventListener("click", async (e) => {
+          const edit = e.target.getAttribute("data-edit");
+          const pdf = e.target.getAttribute("data-pdf");
+          const del = e.target.getAttribute("data-del");
+          if (edit) {
+            const full = await FK.db.getInvoice(edit);
+            openEditor(full);
+          }
+          if (pdf) {
+            try { await FK.pdf.downloadPdf("invoice", await FK.db.getInvoice(pdf)); }
+            catch (ex) { FK.ui.toast(FK.ui.friendlyError(ex, "PDF generation failed."), "error"); }
+          }
+          if (del && await FK.ui.confirmDialog("Delete this invoice?")) {
+            try { await FK.db.deleteInvoice(del); FK.ui.toast("Invoice deleted"); await reload(); }
+            catch (ex) { FK.ui.toast(FK.ui.friendlyError(ex, "Could not delete invoice."), "error"); }
+          }
+        });
+        await reload();
+      },
+    }).catch(() => {});
+  </script>
+</body>
+</html>

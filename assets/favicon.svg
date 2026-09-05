@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="FreelanceKit">
+  <rect width="64" height="64" rx="14" fill="#1F5C4D"/>
+  <path fill="#F7F4EF" d="M16 18h20c6.6 0 12 4.5 12 11s-5.4 11-12 11H22v6H16V18zm6 16h13c3.3 0 6-2.2 6-5s-2.7-5-6-5H22v10z"/>
+  <rect x="38" y="42" width="10" height="4" rx="1" fill="#C4A574"/>
+</svg>

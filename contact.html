@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contact — FreelanceKit</title>
+  <meta name="description" content="Contact the operator of your FreelanceKit deployment.">
+  <meta name="robots" content="index,follow">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="header-slot"></div>
+  <main class="legal" id="main">
+    <h1>Contact</h1>
+    <p>FreelanceKit is invoicing software you can self-host. There is no invented company address or registration number on this page.</p>
+    <p>For support with a public deployment, email the address configured for that instance:</p>
+    <p><a id="mail" href="mailto:hello@example.com">hello@example.com</a></p>
+    <p>Replace <code>supportEmail</code> in <code>config.js</code> before you launch.</p>
+  </main>
+  <div id="footer-slot"></div>
+  <script src="config.js"></script>
+  <script src="ui.js"></script>
+  <script>
+    FreelanceKit.ui.initTheme();
+    document.getElementById("header-slot").innerHTML = FreelanceKit.ui.publicHeader();
+    document.getElementById("footer-slot").innerHTML = FreelanceKit.ui.publicFooter();
+    const email = FreelanceKit.config.supportEmail || "hello@example.com";
+    const a = document.getElementById("mail");
+    a.href = "mailto:" + email;
+    a.textContent = email;
+    document.getElementById("theme-toggle")?.addEventListener("click", () => {
+      FreelanceKit.ui.applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Terms of Service — FreelanceKit</title>
+  <meta name="description" content="Terms of use for FreelanceKit invoicing software.">
+  <meta name="robots" content="index,follow">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="header-slot"></div>
+  <main class="legal" id="main">
+    <h1>Terms of Service</h1>
+    <p>Last updated: 5 September 2026. These terms apply to the FreelanceKit software as deployed by you or your operator. They are a starting template, not a substitute for legal review.</p>
+    <h2>The service</h2>
+    <p>FreelanceKit is productivity and invoicing software for freelancers. It helps you store clients, create invoices and quotations, generate PDFs, and record payments. It does not provide financial, tax, or legal advice. You remain responsible for the accuracy of documents you send and for compliance with tax law.</p>
+    <h2>Accounts</h2>
+    <p>You must provide a valid email and keep your password confidential. You are responsible for activity on your account.</p>
+    <h2>Plans</h2>
+    <p>The Free plan includes usage limits. The Pro plan is billed at the prices shown at checkout. An upgrade is complete only when the payment provider confirms payment. Displayed prices in the browser are not authorization.</p>
+    <h2>Acceptable use</h2>
+    <p>Do not attempt to access another user’s data, bypass plan limits by tampering with the client, or abuse the service infrastructure.</p>
+    <h2>Availability</h2>
+    <p>The app depends on third-party infrastructure (for example Supabase). Downtime or data-center issues may occur.</p>
+    <h2>Limitation of liability</h2>
+    <p>To the extent permitted by law, FreelanceKit’s operators are not liable for lost profits, incorrect invoices, or tax outcomes arising from use of the software.</p>
+    <h2>Changes</h2>
+    <p>These terms may be updated. Continued use after an update constitutes acceptance of the revised terms where applicable law allows.</p>
+  </main>
+  <div id="footer-slot"></div>
+  <script src="config.js"></script>
+  <script src="ui.js"></script>
+  <script>
+    FreelanceKit.ui.initTheme();
+    document.getElementById("header-slot").innerHTML = FreelanceKit.ui.publicHeader();
+    document.getElementById("footer-slot").innerHTML = FreelanceKit.ui.publicFooter();
+    document.getElementById("theme-toggle")?.addEventListener("click", () => {
+      FreelanceKit.ui.applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+    });
+  </script>
+</body>
+</html>

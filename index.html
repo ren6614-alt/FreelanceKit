@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FreelanceKit — Freelance invoice generator & client management</title>
+  <meta name="description" content="FreelanceKit is invoice maker software for freelancers: quotations, invoices, payment tracking, and client management in one workspace.">
+  <meta name="robots" content="index,follow">
+  <meta property="og:title" content="FreelanceKit — Run your freelance business without the paperwork">
+  <meta property="og:description" content="Clients, invoices, quotations and payment tracking for freelancers. Start free.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/favicon.svg">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1F5C4D">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="header-slot"></div>
+  <main id="main">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Freelance invoice software</p>
+        <h1>Clients. Invoices. Payments. One simple workspace.</h1>
+        <p class="lede">Run your freelance business without the paperwork. Create invoices, send quotations, and track what you are owed — without a finance team.</p>
+        <div class="hero-actions">
+          <a class="btn" href="signup.html">Start Free</a>
+          <a class="btn btn-ghost" href="pricing.html">View Pricing</a>
+        </div>
+      </div>
+      <aside class="hero-card mini-invoice" aria-hidden="true">
+        <p class="eyebrow">Invoice preview</p>
+        <h3 class="serif" style="margin:8px 0">INV-0042</h3>
+        <div class="mini-row"><span>Brand workshop</span><span>₹24,000</span></div>
+        <div class="mini-row"><span>Website copy</span><span>₹12,500</span></div>
+        <div class="mini-row"><span>Tax</span><span>₹6,570</span></div>
+        <div class="mini-total"><span>Amount due</span><span>₹43,070</span></div>
+      </aside>
+    </section>
+
+    <section class="section" id="features">
+      <h2>Everything you need to get paid</h2>
+      <p class="lede">A freelance invoice generator with client management, quotation tools, and payment tracking.</p>
+      <div class="grid-3" style="margin-top:28px">
+        <article class="feature"><h3>Invoice maker for freelancers</h3><p>Line items, tax, discounts, due dates, and professional PDFs you can send to a client.</p></article>
+        <article class="feature"><h3>Quotation generator</h3><p>Draft, send, and convert an accepted quotation into an invoice in one step.</p></article>
+        <article class="feature"><h3>Client management for freelancers</h3><p>Keep contacts, tax IDs, notes, and a history of invoices and quotations together.</p></article>
+        <article class="feature"><h3>Payment tracking for freelancers</h3><p>Record bank transfer, UPI, cash, or card payments and watch invoice status update.</p></article>
+        <article class="feature"><h3>Usage you can see</h3><p>Free plan limits are shown clearly so you always know how many invoices you have left this month.</p></article>
+        <article class="feature"><h3>Pro when you outgrow Free</h3><p>Unlimited documents, analytics, expenses, recurring invoices, and custom branding.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="how">
+      <h2>How it works</h2>
+      <div class="grid-3 steps" style="margin-top:28px">
+        <article class="feature step"><h3>Add a client</h3><p>Store the people you work with, including company and GST details.</p></article>
+        <article class="feature step"><h3>Create a quotation or invoice</h3><p>Add items, tax, and terms. Download a PDF when you are ready to send it.</p></article>
+        <article class="feature step"><h3>Track payment</h3><p>Log what you received. FreelanceKit updates paid, partial, and overdue status.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="compare">
+      <h2>Free vs Pro</h2>
+      <div class="table-wrap" style="margin-top:20px">
+        <table class="cmp">
+          <thead><tr><th>Feature</th><th>Free</th><th>Pro <span class="badge badge-pro">PRO</span></th></tr></thead>
+          <tbody>
+            <tr><td>Clients</td><td>Up to 5</td><td>Unlimited</td></tr>
+            <tr><td>Invoices</td><td>5 / month</td><td>Unlimited</td></tr>
+            <tr><td>Quotations</td><td>5 / month</td><td>Unlimited</td></tr>
+            <tr><td>PDF invoices & quotations</td><td>Yes</td><td>Yes, with branding</td></tr>
+            <tr><td>Payment tracking</td><td>Basic</td><td>Full history & overdue</td></tr>
+            <tr><td>Dashboard</td><td>Basic</td><td>Revenue analytics</td></tr>
+            <tr><td>Expenses</td><td>—</td><td>Yes</td></tr>
+            <tr><td>Recurring invoices</td><td>—</td><td>Yes</td></tr>
+            <tr><td>Custom templates & colors</td><td>Basic template</td><td>Multiple templates</td></tr>
+            <tr><td>CSV / JSON export</td><td>Yes</td><td>Yes + PDF reports</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section" id="pricing">
+      <h2>Simple pricing</h2>
+      <p class="lede">Start free. Upgrade when you need unlimited documents.</p>
+      <div class="grid-2" style="margin-top:28px;max-width:760px">
+        <article class="price-card">
+          <span class="badge badge-free">FREE</span>
+          <div class="price">₹0<span style="font-size:1rem">/month</span></div>
+          <p>For getting started with a handful of clients.</p>
+          <a class="btn" href="signup.html">Start Free</a>
+        </article>
+        <article class="price-card featured">
+          <span class="badge badge-pro">PRO</span>
+          <div class="price">₹399<span style="font-size:1rem">/month</span></div>
+          <p>or ₹3,999/year — save ₹791 versus paying monthly.</p>
+          <a class="btn btn-gold" href="pricing.html">View Pricing</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="faq">
+      <h2>FAQ</h2>
+      <div class="grid-2" style="margin-top:20px">
+        <article class="faq"><h3>Does FreelanceKit process client payments?</h3><p>You can record payments you receive (UPI, bank transfer, cash, card). FreelanceKit does not currently process those client payments unless you connect a gateway later.</p></article>
+        <article class="faq"><h3>Where is my data stored?</h3><p>Account data is stored in your Supabase project (cloud database) with row-level security so other users cannot read your records.</p></article>
+        <article class="faq"><h3>Can I export my data?</h3><p>Yes. Free and Pro users can export clients, invoices, quotations, payments, and expenses.</p></article>
+        <article class="faq"><h3>Is this financial or legal advice?</h3><p>No. FreelanceKit is productivity and invoicing software. Confirm tax treatment with a qualified professional.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="privacy">
+      <h2>Privacy & security</h2>
+      <p class="lede">Authentication uses Supabase Auth. Passwords are never stored in FreelanceKit tables. Private pages are not indexed. Plan status is read from the database, not from values you could set in the browser.</p>
+      <p><a href="privacy.html">Read the privacy policy</a></p>
+    </section>
+  </main>
+  <div id="footer-slot"></div>
+  <script src="config.js"></script>
+  <script src="ui.js"></script>
+  <script>
+    FreelanceKit.ui.initTheme();
+    document.getElementById("header-slot").innerHTML = FreelanceKit.ui.publicHeader();
+    document.getElementById("footer-slot").innerHTML = FreelanceKit.ui.publicFooter();
+    document.getElementById("theme-toggle")?.addEventListener("click", () => {
+      const cur = document.documentElement.getAttribute("data-theme");
+      FreelanceKit.ui.applyTheme(cur === "dark" ? "light" : "dark");
+    });
+    FreelanceKit.ui.registerPwa();
+  </script>
+</body>
+</html>

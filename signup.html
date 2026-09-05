@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign up — FreelanceKit</title>
+  <meta name="description" content="Create a free FreelanceKit account to start invoicing clients.">
+  <meta name="robots" content="noindex,follow">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="auth-card card">
+      <a class="brand" href="index.html"><img class="brand-mark" src="assets/favicon.svg" alt=""> FreelanceKit</a>
+      <h1>Start free</h1>
+      <p class="help">No credit card. 5 clients, 5 invoices and 5 quotations per month.</p>
+      <form id="form">
+        <label>Full name <input name="name" required autocomplete="name"></label>
+        <label style="margin-top:10px;display:block">Email <input type="email" name="email" required autocomplete="email"></label>
+        <label style="margin-top:10px;display:block">Password <input type="password" name="password" required minlength="8" autocomplete="new-password"></label>
+        <button class="btn" type="submit" style="width:100%;margin-top:16px">Create account</button>
+      </form>
+      <p>Already have an account? <a href="login.html">Log in</a></p>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="ui.js"></script>
+  <script src="auth.js"></script>
+  <script>
+    const FK = FreelanceKit;
+    FK.ui.initTheme();
+    document.getElementById("form").onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        const result = await FK.auth.signup(fd.get("email"), fd.get("password"), fd.get("name"));
+        if (result.session) location.replace("dashboard.html");
+        else FK.ui.toast("Check your email to confirm your account, then log in.");
+      } catch (err) {
+        FK.ui.toast(FK.ui.friendlyError(err, "Could not create account."), "error");
+      }
+    };
+  </script>
+</body>
+</html>

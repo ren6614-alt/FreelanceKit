@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clients — FreelanceKit</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="page" hidden>
+    <div class="toolbar">
+      <input class="search" id="search" placeholder="Search clients">
+      <button class="btn" type="button" id="add">Add client</button>
+    </div>
+    <div id="list"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="config.js"></script>
+  <script src="ui.js"></script>
+  <script src="auth.js"></script>
+  <script src="database.js"></script>
+  <script src="subscription.js"></script>
+  <script src="invoices.js"></script>
+  <script src="quotations.js"></script>
+  <script src="clients.js"></script>
+  <script src="payments.js"></script>
+  <script src="pdf.js"></script>
+  <script src="app.js"></script>
+  <script>
+    const FK = FreelanceKit;
+    let clients = [], invoices = [], quotations = [], payments = [];
+
+    function formHtml(c) {
+      c = c || {};
+      return `<form id="cform" class="form-grid">
+        <label>Name <input name="name" required value="${FK.ui.escapeHtml(c.name || "")}"></label>
+        <label>Company <input name="company" value="${FK.ui.escapeHtml(c.company || "")}"></label>
+        <label>Email <input type="email" name="email" value="${FK.ui.escapeHtml(c.email || "")}"></label>
+        <label>Phone <input name="phone" value="${FK.ui.escapeHtml(c.phone || "")}"></label>
+        <label class="full">Address <textarea name="address">${FK.ui.escapeHtml(c.address || "")}</textarea></label>
+        <label>Tax/GST <input name="tax_id" value="${FK.ui.escapeHtml(c.tax_id || "")}"></label>
+        <label class="full">Notes <textarea name="notes">${FK.ui.escapeHtml(c.notes || "")}</textarea></label>
+        <div class="full toolbar"><button class="btn btn-ghost" type="button" data-close>Cancel</button><button class="btn" type="submit">Save</button></div>
+      </form>`;
+    }
+
+    function paint(filter) {
+      const q = (filter || "").toLowerCase();
+      const rows = clients.filter((c) => [c.name, c.company, c.email].join(" ").toLowerCase().includes(q));
+      const el = document.getElementById("list");
+      if (!rows.length) {
+        el.innerHTML = `<div class="empty"><h3>No clients yet.</h3><p>Add your first client to start creating invoices.</p><button class="btn" id="empty-add">Add client</button></div>`;
+        document.getElementById("empty-add").onclick = () => document.getElementById("add").click();
+        return;
+      }
+      el.innerHTML = `<div class="table-wrap"><table class="data"><thead><tr><th>Name</th><th>Company</th><th>Email</th><th></th></tr></thead><tbody>
+        ${rows.map((c) => `<tr>
+          <td>${FK.ui.escapeHtml(c.name)}</td>
+          <td>${FK.ui.escapeHtml(c.company || "—")}</td>
+          <td>${FK.ui.escapeHtml(c.email || "—")}</td>
+          <td><button class="btn btn-ghost btn-sm" data-view="${c.id}">View</button>
+              <button class="btn btn-ghost btn-sm" data-edit="${c.id}">Edit</button>
+              <button class="btn btn-ghost btn-sm" data-del="${c.id}">Delete</button></td>
+        </tr>`).join("")}
+      </tbody></table></div>`;
+    }
+
+    async function openEditor(existing) {
+      if (!existing && !FK.subscriptionApi.canAddClient()) {
+        FK.ui.toast(FK.subscriptionApi.limitMessage("clients"), "error");
+        FK.ui.showUpgrade("unlimited clients");
+        return;
+      }
+      FK.ui.modal(`<h2>${existing ? "Edit client" : "Add client"}</h2>` + formHtml(existing));
+      document.querySelector("[data-close]").onclick = FK.ui.closeModal;
+      document.getElementById("cform").onsubmit = async (e) => {
+        e.preventDefault();
+        const fd = Object.fromEntries(new FormData(e.target).entries());
+        const err = FK.clients.validateClient(fd);
+        if (err) { FK.ui.toast(err, "error"); return; }
+        try {
+          if (existing) fd.id = existing.id;
+          await FK.db.saveClient(fd);
+          FK.ui.toast(existing ? "Client updated" : "Client created");
+          FK.ui.closeModal();
+          await reload();
+        } catch (ex) {
+          FK.ui.toast(FK.ui.friendlyError(ex, "Could not save client."), "error");
+        }
+      };
+    }
+
+    async function viewClient(id) {
+      const c = clients.find((x) => x.id === id);
+      const inv = invoices.filter((i) => i.client_id === id);
+      const qt = quotations.filter((q) => q.client_id === id);
+      const pay = payments.filter((p) => inv.some((i) => i.id === p.invoice_id));
+      FK.ui.modal(`<h2>${FK.ui.escapeHtml(c.name)}</h2>
+        <p>${FK.ui.escapeHtml(c.company || "")}<br>${FK.ui.escapeHtml(c.email || "")}<br>${FK.ui.escapeHtml(c.phone || "")}<br>${FK.ui.escapeHtml(c.address || "")}</p>
+        <p><strong>Invoices</strong></p>
+        <ul>${inv.map((i) => `<li>${FK.ui.escapeHtml(i.number)} · ${FK.app.statusBadge(i.status)} · ${FK.ui.formatMoney(i.total, i.currency)}</li>`).join("") || "<li>None</li>"}</ul>
+        <p><strong>Quotations</strong></p>
+        <ul>${qt.map((i) => `<li>${FK.ui.escapeHtml(i.number)} · ${FK.app.statusBadge(i.status)}</li>`).join("") || "<li>None</li>"}</ul>
+        <p><strong>Payment history</strong></p>
+        <ul>${pay.map((p) => `<li>${FK.ui.formatDate(p.paid_at)} · ${FK.ui.formatMoney(p.amount)} · ${FK.ui.escapeHtml(p.method)}</li>`).join("") || "<li>None</li>"}</ul>
+        <button class="btn btn-ghost" type="button" data-close>Close</button>`, { wide: true });
+      document.querySelector("[data-close]").onclick = FK.ui.closeModal;
+    }
+
+    async function reload() {
+      clients = await FK.db.listClients();
+      invoices = await FK.db.listInvoices();
+      quotations = await FK.db.listQuotations();
+      payments = await FK.db.listPayments();
+      await FK.subscriptionApi.getUsage();
+      paint(document.getElementById("search").value);
+    }
+
+    FK.app.bootPrivate({
+      active: "clients",
+      title: "Clients",
+      contentSelector: "#page",
+      render: async () => {
+        document.getElementById("page").hidden = false;
+        document.getElementById("add").onclick = () => openEditor(null);
+        document.getElementById("search").oninput = (e) => paint(e.target.value);
+        document.getElementById("list").addEventListener("click", async (e) => {
+          const view = e.target.getAttribute("data-view");
+          const edit = e.target.getAttribute("data-edit");
+          const del = e.target.getAttribute("data-del");
+          if (view) viewClient(view);
+          if (edit) openEditor(clients.find((c) => c.id === edit));
+          if (del && await FK.ui.confirmDialog("Delete this client?")) {
+            try { await FK.db.deleteClient(del); FK.ui.toast("Client deleted"); await reload(); }
+            catch (ex) { FK.ui.toast(FK.ui.friendlyError(ex, "Could not delete client."), "error"); }
+          }
+        });
+        await reload();
+      },
+    }).catch(() => {});
+  </script>
+</body>
+</html>
