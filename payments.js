@@ -15,6 +15,7 @@
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        apikey: FK.config.supabaseAnonKey,
         Authorization: "Bearer " + session.access_token,
       },
       body: JSON.stringify({ action, ...body }),
@@ -22,6 +23,7 @@
     let data = {};
     try { data = await res.json(); } catch { data = {}; }
     if (!res.ok || !data.ok) {
+      console.error("Payments Edge Function response:", res.status, data);
       throw new Error(data.error || "Payment service unavailable.");
     }
     return data;
@@ -71,6 +73,11 @@
       name: "FreelanceKit",
       description: period === "yearly" ? "Pro yearly" : "Pro monthly",
       handler: async function (response) {
+        console.log("Razorpay payment response:", {
+          orderId: response.razorpay_order_id,
+          paymentId: response.razorpay_payment_id,
+          hasSignature: Boolean(response.razorpay_signature),
+        });
         try {
           const verified = await verifyPayment({
             razorpay_order_id: response.razorpay_order_id,

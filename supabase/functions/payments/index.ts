@@ -56,17 +56,17 @@ Deno.serve(async (req) => {
   const razorpayKeyId = Deno.env.get("RAZORPAY_KEY_ID") || "";
   const razorpaySecret = Deno.env.get("RAZORPAY_KEY_SECRET") || "";
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const serviceKey = Deno.env.get("PAYMENTS_SERVER_KEY") || "";
 
-  if (!razorpayKeyId || !razorpaySecret) {
-    return json({ ok: false, error: "Payments are not configured yet." }, 503);
+  if (!razorpayKeyId || !razorpaySecret || !serviceKey) {
+    return json({ ok: false, error: "Payment server configuration is incomplete." }, 503);
   }
 
   const authHeader = req.headers.get("Authorization") || "";
   const jwt = authHeader.replace(/^Bearer\s+/i, "");
   if (!jwt) return json({ ok: false, error: "Sign in required." }, 401);
 
-  const admin = createClient(supabaseUrl, serviceKey);
+  const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: userData, error: userError } = await admin.auth.getUser(jwt);
   if (userError || !userData?.user) return json({ ok: false, error: "Invalid session." }, 401);
   const user = userData.user;
@@ -123,8 +123,14 @@ Deno.serve(async (req) => {
         razorpaySecret,
         `${razorpay_order_id}|${razorpay_payment_id}`
       );
-      if (expected !== razorpay_signature) {
-        return json({ ok: false, error: "Payment could not be verified." }, 400);
+      if (expected.toLowerCase() !== String(razorpay_signature).toLowerCase()) {
+        console.error("Razorpay signature mismatch", {
+          hasOrderId: Boolean(razorpay_order_id),
+          hasPaymentId: Boolean(razorpay_payment_id),
+          signatureLength: String(razorpay_signature).length,
+          expectedLength: expected.length,
+        });
+        return json({ ok: false, error: "Payment signature verification failed." }, 400);
       }
 
       const billing = period === "yearly" ? "yearly" : "monthly";

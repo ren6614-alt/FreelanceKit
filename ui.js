@@ -124,10 +124,19 @@
   }
 
   function friendlyError(err, fallback) {
-    const msg = (err && err.message) || "";
+    const cause = err && err.cause;
+    const msg = String((err && err.message) || (cause && cause.message) || "");
+    if (/Supabase is not configured/i.test(msg)) return msg;
+    if (/Free plan .+ limit/i.test(msg)) return msg;
+    if (/Pro plan required/i.test(msg)) return "This feature is available on the Pro plan.";
+    if (/duplicate key|already exists|unique constraint/i.test(msg)) return "That number is already used. Choose a different document number.";
+    if (/User already registered|already been registered/i.test(msg)) return "An account with that email already exists. Log in instead.";
+    if (/Invalid login credentials/i.test(msg)) return "Could not log in. Check your email and password.";
+    if (/Email not confirmed/i.test(msg)) return "Confirm your email from the message we sent, then log in.";
+    if (/Password should be/i.test(msg)) return msg;
     if (/Failed to fetch|NetworkError|network/i.test(msg)) return "Network problem. Check your connection and try again.";
-    if (/JWT|session|expired|not authenticated|Invalid login/i.test(msg)) return "Your session expired. Please sign in again.";
-    if (/row-level security|permission|not authorized/i.test(msg)) return "You do not have access to that record.";
+    if (/JWT|session|expired|not authenticated/i.test(msg)) return "Your session expired. Please sign in again.";
+    if (/row-level security|permission|not authorized|42501/i.test(msg)) return "You do not have access to that record.";
     if (/PAYMENTS_NOT_CONFIGURED/i.test(msg)) return "Payments are not configured yet.";
     return fallback || "Something went wrong. Please try again.";
   }
@@ -212,14 +221,14 @@
   function publicHeader(active) {
     return `
       <a class="skip-link" href="#main">Skip to content</a>
-      <header class="public-header">
+      <header class="public-header" id="public-header">
         <a class="brand" href="index.html"><img class="brand-mark" src="assets/favicon.svg" alt=""> FreelanceKit</a>
         <nav class="nav-links public">
           <a href="index.html#features">Features</a>
           <a href="pricing.html">Pricing</a>
           <a href="contact.html">Contact</a>
-          <a href="login.html">Log in</a>
-          <a class="btn btn-sm" href="signup.html">Start Free</a>
+          <a href="login.html" data-auth="login">Log in</a>
+          <a class="btn btn-sm" href="signup.html" data-auth="cta">Start Free</a>
         </nav>
         <button class="btn btn-ghost btn-sm mobile-toggle menu-public" type="button" id="public-menu">Menu</button>
       </header>
@@ -249,12 +258,43 @@
           </div>
           <div>
             <strong>Account</strong>
-            <p><a href="login.html">Log in</a></p>
+            <p><a href="login.html" data-auth="login">Log in</a></p>
             <p><button class="linkish btn btn-ghost btn-sm" type="button" id="theme-toggle">Toggle theme</button></p>
           </div>
         </div>
       </footer>
     `;
+  }
+
+  async function hydratePublicAuth() {
+    if (!FK.auth || !FK.auth.isConfigured()) return;
+    try {
+      const session = await FK.auth.getSession();
+      if (!session) return;
+      document.querySelectorAll("[data-auth='login']").forEach((el) => {
+        el.setAttribute("href", "dashboard.html");
+        el.textContent = "Dashboard";
+      });
+      document.querySelectorAll("[data-auth='cta']").forEach((el) => {
+        el.setAttribute("href", "dashboard.html");
+        el.textContent = "Open workspace";
+      });
+    } catch {
+      /* public pages still work if auth is unavailable */
+    }
+  }
+
+  function mountPublic(options) {
+    initTheme();
+    const header = document.getElementById("header-slot");
+    const footer = document.getElementById("footer-slot");
+    if (header) header.innerHTML = publicHeader();
+    if (footer) footer.innerHTML = publicFooter();
+    document.getElementById("theme-toggle")?.addEventListener("click", () => {
+      applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+    });
+    if (options && options.pwa) registerPwa();
+    hydratePublicAuth();
   }
 
   function registerPwa() {
@@ -272,7 +312,8 @@
   FK.ui = {
     $, $$, escapeHtml, formatMoney, formatDate, todayISO, applyTheme, initTheme,
     toast, modal, closeModal, confirmDialog, showUpgrade, friendlyError,
-    mountApp, publicHeader, publicFooter, registerPwa, optionalAnalytics, renderUsage,
+    mountApp, publicHeader, publicFooter, mountPublic, hydratePublicAuth,
+    registerPwa, optionalAnalytics, renderUsage,
   };
 
   document.addEventListener("click", (e) => {

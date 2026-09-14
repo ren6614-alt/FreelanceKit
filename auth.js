@@ -20,6 +20,22 @@
     return FK._supabase;
   }
 
+  function requireConfiguredClient() {
+    if (!isConfigured()) {
+      throw new Error("Supabase is not configured. Add supabaseUrl and supabaseAnonKey in config.js, then reload.");
+    }
+    const sb = client();
+    if (!sb) throw new Error("Supabase is not configured. Add supabaseUrl and supabaseAnonKey in config.js, then reload.");
+    return sb;
+  }
+
+  function safeNext(raw) {
+    const value = String(raw || "").trim();
+    if (!value || value.length > 80) return "dashboard.html";
+    if (!/^[a-z0-9][a-z0-9.-]*\.html$/i.test(value)) return "dashboard.html";
+    return value;
+  }
+
   async function getSession() {
     const sb = client();
     if (!sb) return null;
@@ -35,7 +51,7 @@
     }
     const session = await getSession();
     if (!session) {
-      const next = encodeURIComponent(location.pathname.split("/").pop() || "dashboard.html");
+      const next = encodeURIComponent(safeNext(location.pathname.split("/").pop() || "dashboard.html"));
       location.replace("login.html?next=" + next);
       throw new Error("Not authenticated");
     }
@@ -45,25 +61,28 @@
   }
 
   async function signup(email, password, fullName) {
-    const sb = client();
+    const sb = requireConfiguredClient();
     const { data, error } = await sb.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName || "" } },
+      options: {
+        data: { full_name: fullName || "" },
+        emailRedirectTo: new URL("login.html", location.href).toString(),
+      },
     });
     if (error) throw error;
     return data;
   }
 
   async function login(email, password) {
-    const sb = client();
+    const sb = requireConfiguredClient();
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw error;
     return data;
   }
 
   async function requestPasswordReset(email) {
-    const sb = client();
+    const sb = requireConfiguredClient();
     const { error } = await sb.auth.resetPasswordForEmail(email, {
       redirectTo: new URL("reset-password.html", location.href).toString(),
     });
@@ -71,9 +90,15 @@
   }
 
   async function updatePassword(password) {
-    const sb = client();
+    const sb = requireConfiguredClient();
     const { error } = await sb.auth.updateUser({ password });
     if (error) throw error;
+  }
+
+  async function redirectIfSignedIn(fallback) {
+    const session = await getSession();
+    if (session) location.replace(safeNext(fallback) || "dashboard.html");
+    return session;
   }
 
   async function logout() {
@@ -85,6 +110,7 @@
   FK.auth = {
     isConfigured,
     client,
+    requireConfiguredClient,
     getSession,
     requireSession,
     signup,
@@ -92,5 +118,7 @@
     requestPasswordReset,
     updatePassword,
     logout,
+    safeNext,
+    redirectIfSignedIn,
   };
 })();

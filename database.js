@@ -11,7 +11,9 @@
 
   function throwClean(error, fallback) {
     console.error(error);
-    const err = new Error(fallback);
+    const raw = String((error && error.message) || "");
+    const useRaw = /limit reached|Pro plan required|duplicate key|already exists|unique constraint|Client not found/i.test(raw);
+    const err = new Error(useRaw ? raw : fallback);
     err.cause = error;
     throw err;
   }

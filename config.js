@@ -16,17 +16,17 @@ window.FreelanceKit.config = {
   tagline: "Run your freelance business without the paperwork.",
   supportEmail: "hello@example.com",
 
-  supabaseUrl: "",
-  supabaseAnonKey: "",
+  supabaseUrl: "https://fhyzkfurutrfqdrhpzbg.supabase.co",
+supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoeXprZnVydXRydmRyaHB6Ymd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU1NjY2NzksImV4cCI6MjA0MTE0MjY3OX0.f-KzK-UJh0JfPv4wEi8c_t_Y_z9wj9XzMxNhGc0WqY",
 
   /** Razorpay Key ID only (rzp_test_… / rzp_live_…). Never the secret. */
-  razorpayKeyId: "",
+  razorpayKeyId: "rzp_test_1234567890",
 
   /**
    * Supabase Edge Function that verifies Razorpay signatures and
    * updates subscriptions with the service role. Leave empty until deployed.
    */
-  paymentsFunctionUrl: "",
+  paymentsFunctionUrl: "https://fhyzkfurutrfqdrhpzbg.supabase.co/functions/v1/payments",
 
   defaultCurrency: "INR",
   defaultLocale: "en-IN",
